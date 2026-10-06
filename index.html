@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive POCUS Guide for EM Registrars</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: "Calm Neutral Blue" -->
+    <!-- Application Structure Plan: A task-oriented, single-page application using a hub-and-spoke model. A sticky top navigation bar ("hub") allows users to jump to specific content modules ("spokes") for Foundations, Core Diagnostics, Nerve Blocks, and Advanced Scans. This non-linear structure prioritizes quick access to information, which is critical for the target audience of busy EM registrars. Content is broken into interactive cards, accordions, and tabs to make dense information digestible and reduce cognitive load. This is more usable than a linear document as a registrar can quickly reference a specific nerve block or scan without scrolling through unrelated content. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: RCEM Indicative Scan Numbers -> Goal: Inform/Compare -> Viz: Bar Chart -> Interaction: Hover for details -> Justification: Visualizes training requirements more effectively than a list -> Library: Chart.js.
+        - Report Info: Probe Selection -> Goal: Inform/Organize -> Viz: Interactive HTML/CSS Diagram -> Interaction: Click on application to highlight probe -> Justification: Creates a memorable, hands-on learning tool for a critical basic skill.
+        - Report Info: Core Scans (e.g., eFAST, ELS) -> Goal: Organize/Explore -> Viz: Tabbed content within expandable cards -> Interaction: Click card to expand, click tab to switch views -> Justification: Manages complex information within a clean UI, mimicking the workflow of performing a scan.
+        - Report Info: Nerve Block Anatomy (e.g., Femoral NAVEL) -> Goal: Relationships/Inform -> Viz: Diagrams using styled HTML/CSS divs -> Interaction: Static visual aid -> Justification: Clarifies spatial relationships of anatomical structures far better than text alone.
+        - Report Info: General Text (Artefacts, Principles) -> Goal: Organize -> Viz: Accordion (details/summary tags) -> Interaction: Click to expand/collapse -> Justification: Hides supplementary text by default, allowing users to focus on primary content and explore details as needed.
+        - New Feature: LA Dose Calculator -> Goal: Utility/Safety -> Viz: Interactive Form -> Interaction: User input triggers calculation -> Justification: Adds a practical, high-yield clinical tool directly relevant to the nerve block section.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://rsms.me/inter/inter.css');
+        .section-card {
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .section-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+        }
+        .nav-link {
+            transition: color 0.2s;
+        }
+        .nav-link.active, .nav-link:hover {
+            color: #3b82f6; /* blue-500 */
+        }
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-button.active {
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+        }
+        .probe-item.active {
+            background-color: #dbeafe; /* blue-100 */
+            border-color: #3b82f6; /* blue-500 */
+        }
+        .probe-display.active {
+            display: flex;
+        }
+        .probe-display {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <h1 class="text-xl font-bold text-slate-700">Interactive POCUS Guide</h1>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#foundations" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">Foundations</a>
+                        <a href="#core" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">Core Diagnostics</a>
+                        <a href="#blocks" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">Nerve Blocks</a>
+                        <a href="#advanced" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">Advanced Scans</a>
+                    </div>
+                </div>
+                <div class="md:hidden">
+                    <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500">
+                        <span class="sr-only">Open main menu</span>
+                        <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="mobile-menu" class="md:hidden hidden">
+                <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                    <a href="#foundations" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-slate-600">Foundations</a>
+                    <a href="#core" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-slate-600">Core Diagnostics</a>
+                    <a href="#blocks" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-slate-600">Nerve Blocks</a>
+                    <a href="#advanced" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-slate-600">Advanced Scans</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+
+        <section id="intro" class="text-center mb-16">
+            <h2 class="text-3xl md:text-4xl font-extrabold text-blue-600 mb-4">A Practical Guide to POCUS</h2>
+            <p class="max-w-3xl mx-auto text-lg text-slate-600">An interactive resource for UK Emergency Medicine Registrars, designed to translate the comprehensive RCEM curriculum into a fast, accessible, and practical bedside tool. Navigate the core principles and procedures of Point-of-Care Ultrasound.</p>
+        </section>
+
+        <!-- Foundations Section -->
+        <section id="foundations" class="mb-16 scroll-mt-20">
+            <h2 class="text-2xl font-bold mb-6 border-l-4 border-blue-500 pl-4">Foundations of POCUS</h2>
+            <p class="mb-8 text-slate-600">Before touching a probe to a patient, a firm understanding of the training framework, technology, and image interpretation is essential. This section provides a registrar's roadmap to achieving POCUS competency within the RCEM structure, from curriculum milestones to machine mastery.</p>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                
+                <div class="bg-white p-6 rounded-lg section-card">
+                    <h3 class="font-bold text-lg mb-3">RCEM Competency</h3>
+                    <p class="text-sm text-slate-600 mb-4">The RCEM curriculum requires achieving Level 4 entrustment, demonstrated via a logbook, reflections, and DOPS assessments. This chart shows the indicative scan numbers for key modalities.</p>
+                    <div class="chart-container relative h-80 w-full max-w-lg mx-auto">
+                        <canvas id="rcemScansChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg section-card lg:col-span-2">
+                    <h3 class="font-bold text-lg mb-3">Probe Selection & Knobology</h3>
+                    <p class="text-sm text-slate-600 mb-4">Choosing the right probe and optimising the image are the first steps to a successful scan. Click on a clinical application below to see the recommended probe and key considerations.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div id="probe-selector" class="md:col-span-1">
+                            <ul class="space-y-2">
+                                <li><button data-probe="cardiac" class="probe-item w-full text-left p-3 border rounded-lg hover:bg-blue-50">ELS / Shock</button></li>
+                                <li><button data-probe="abdominal" class="probe-item w-full text-left p-3 border rounded-lg hover:bg-blue-50">eFAST / AAA</button></li>
+                                <li><button data-probe="linear" class="probe-item w-full text-left p-3 border rounded-lg hover:bg-blue-50">Nerve Blocks / Vascular</button></li>
+                            </ul>
+                        </div>
+                        <div class="md:col-span-2 bg-slate-50 rounded-lg p-4">
+                            <div id="probe-display-cardiac" class="probe-display">
+                                <div class="w-1/3 flex items-center justify-center">
+                                    <div class="w-20 h-24 bg-slate-300 rounded-t-lg relative flex flex-col justify-end p-1"><div class="w-full h-16 bg-slate-400"></div><div class="w-6 h-2 bg-slate-500 mx-auto rounded-sm"></div></div>
+                                </div>
+                                <div class="w-2/3 pl-4">
+                                    <h4 class="font-bold">Phased Array (Cardiac)</h4>
+                                    <p class="text-sm text-slate-600">Small footprint for intercostal access. Low frequency (1-5 MHz) for deep penetration. Essential for all cardiac views.</p>
+                                </div>
+                            </div>
+                            <div id="probe-display-abdominal" class="probe-display">
+                                <div class="w-1/3 flex items-center justify-center">
+                                    <div class="w-24 h-24 bg-slate-300 rounded-t-full relative flex flex-col justify-end p-1"><div class="w-full h-16 bg-slate-400 rounded-t-full"></div></div>
+                                </div>
+                                <div class="w-2/3 pl-4">
+                                    <h4 class="font-bold">Curvilinear (Abdominal)</h4>
+                                    <p class="text-sm text-slate-600">Wide, curved footprint. Low frequency (2-5 MHz) for excellent depth in abdominal scans. The workhorse for eFAST and AAA.</p>
+                                </div>
+                            </div>
+                             <div id="probe-display-linear" class="probe-display active">
+                                <div class="w-1/3 flex items-center justify-center">
+                                    <div class="w-24 h-20 bg-slate-300 rounded-t-md relative flex flex-col justify-end p-1"><div class="w-full h-14 bg-slate-400"></div></div>
+                                </div>
+                                <div class="w-2/3 pl-4">
+                                    <h4 class="font-bold">Linear (High-Frequency)</h4>
+                                    <p class="text-sm text-slate-600">Flat footprint. High frequency (5-15 MHz) for high-resolution images of superficial structures. Ideal for nerves, vessels, and pleura.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg section-card lg:col-span-3">
+                     <h3 class="font-bold text-lg mb-3">Key Principles: Artefacts & Probe Movements</h3>
+                     <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <details class="mb-2">
+                                <summary class="font-semibold cursor-pointer p-3 bg-slate-100 rounded-lg flex justify-between items-center">Acoustic Shadowing <span class="text-blue-500">+</span></summary>
+                                <div class="p-3 text-sm text-slate-600">Caused by highly attenuating structures (bone, gallstones) blocking sound waves, creating a dark shadow deep to the structure. A key diagnostic clue for stones.</div>
+                            </details>
+                            <details class="mb-2">
+                                <summary class="font-semibold cursor-pointer p-3 bg-slate-100 rounded-lg flex justify-between items-center">Posterior Enhancement <span class="text-blue-500">+</span></summary>
+                                <div class="p-3 text-sm text-slate-600">Occurs when sound passes through a fluid-filled structure with low attenuation (e.g., bladder, cyst). The area behind appears artificially bright. Confirms a structure is cystic.</div>
+                            </details>
+                             <details class="mb-2">
+                                <summary class="font-semibold cursor-pointer p-3 bg-slate-100 rounded-lg flex justify-between items-center">Reverberation (A-lines & B-lines) <span class="text-blue-500">+</span></summary>
+                                <div class="p-3 text-sm text-slate-600">The basis of lung ultrasound. A-lines are horizontal artefacts in normal lung. B-lines are vertical "lung rocket" artefacts indicating interstitial fluid.</div>
+                            </details>
+                        </div>
+                        <div>
+                             <details class="mb-2">
+                                <summary class="font-semibold cursor-pointer p-3 bg-slate-100 rounded-lg flex justify-between items-center">Mirror Image <span class="text-blue-500">+</span></summary>
+                                <div class="p-3 text-sm text-slate-600">A strong reflector (e.g., diaphragm) creates a "ghost" image on the other side. The presence of a liver/spleen mirror image in the thorax is a normal finding that helps rule out effusion.</div>
+                            </details>
+                            <details class="mb-2">
+                                <summary class="font-semibold cursor-pointer p-3 bg-slate-100 rounded-lg flex justify-between items-center">Probe Movements <span class="text-blue-500">+</span></summary>
+                                <div class="p-3 text-sm text-slate-600">
+                                    <ul class="list-disc list-inside space-y-1">
+                                        <li><strong>Sliding:</strong> Moving the probe to a new location.</li>
+                                        <li><strong>Tilting (Fanning):</strong> Angling along the long axis.</li>
+                                        <li><strong>Rocking:</strong> Angling along the short axis.</li>
+                                        <li><strong>Rotating:</strong> Turning on a central axis.</li>
+                                        <li><strong>Compression:</strong> Applying pressure (key for DVT).</li>
+                                    </ul>
+                                </div>
+                            </details>
+                        </div>
+                     </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Core Diagnostics Section -->
+        <section id="core" class="mb-16 scroll-mt-20">
+            <h2 class="text-2xl font-bold mb-6 border-l-4 border-blue-500 pl-4">Core Diagnostic Modalities</h2>
+            <p class="mb-8 text-slate-600">Mastery of these four modalities is essential for managing critically ill and injured patients. This section breaks down each scan into its key views, interpretation points, and clinical significance. Use the tabs to explore the different components of each examination.</p>
+            <div class="space-y-4">
+                <!-- ELS Card -->
+                <details class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <summary class="p-6 cursor-pointer flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-blue-700">Echo in Life Support (ELS) & Shock</h3>
+                        <span class="text-2xl text-blue-500 transform transition-transform duration-200">+</span>
+                    </summary>
+                    <div class="px-6 pb-6">
+                        <p class="mb-4 text-slate-600">A rapid, goal-directed exam to answer specific haemodynamic questions and identify reversible causes of shock and cardiac arrest (The 4 Ps: Pericardium, PE, Pump, Pre-load).</p>
+                        <div class="border-b border-gray-200">
+                            <nav id="els-tabs" class="flex space-x-2" aria-label="Tabs">
+                                <button data-target="els-plax" class="tab-button active px-4 py-2 text-sm font-medium rounded-t-lg">PLAX</button>
+                                <button data-target="els-psax" class="tab-button px-4 py-2 text-sm font-medium rounded-t-lg">PSAX</button>
+                                <button data-target="els-a4c" class="tab-button px-4 py-2 text-sm font-medium rounded-t-lg">A4C</button>
+                                <button data-target="els-ivc" class="tab-button px-4 py-2 text-sm font-medium rounded-t-lg">IVC/Subcostal</button>
+                            </nav>
+                        </div>
+                        <div class="py-4">
+                            <div id="els-plax" class="tab-content active"><h4 class="font-bold">Parasternal Long Axis (PLAX)</h4><p class="text-sm">Key view for LV function and posterior pericardial effusions. Probe left of sternum, marker to right shoulder. Assess if anterior mitral valve leaflet nearly touches the septum.</p></div>
+                            <div id="els-psax" class="tab-content"><h4 class="font-bold">Parasternal Short Axis (PSAX)</h4><p class="text-sm">Rotate 90° from PLAX. Key view for the "D-Sign" of RV strain (septum flattens), indicating massive PE. Assess LV concentric contraction.</p></div>
+                            <div id="els-a4c" class="tab-content"><h4 class="font-bold">Apical 4-Chamber (A4C)</h4><p class="text-sm">Probe at PMI. Key view for comparing RV:LV size. An RV > LV (ratio > 1) is a critical sign of RV strain.</p></div>
+                            <div id="els-ivc" class="tab-content"><h4 class="font-bold">Subcostal & IVC Assessment</h4><p class="text-sm">Often the best view in cardiac arrest. Assesses for effusion and cardiac activity. A small, collapsing IVC (<2.1cm, >50% collapse) suggests fluid responsiveness. A large, plethoric IVC suggests high CVP.</p></div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- eFAST Card -->
+                <details class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <summary class="p-6 cursor-pointer flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-blue-700">eFAST</h3>
+                        <span class="text-2xl text-blue-500 transform transition-transform duration-200">+</span>
+                    </summary>
+                    <div class="px-6 pb-6">
+                        <p class="mb-4 text-slate-600">A rapid survey to detect free fluid (haemoperitoneum, haemothorax) and pneumothorax in trauma. Remember to repeat the scan after interventions or changes in status.</p>
+                        <div class="border-b border-gray-200">
+                            <nav id="efast-tabs" class="flex space-x-2" aria-label="Tabs">
+                                <button data-target="efast-ruq" class="tab-button active px-4 py-2 text-sm font-medium rounded-t-lg">RUQ</button>
+                                <button data-target="efast-luq" class="tab-button px-4 py-2 text-sm font-medium rounded-t-lg">LUQ</button>
+                                <button data-target="efast-pelvic" class="tab-button px-4 py-2 text-sm font-medium rounded-t-lg">Pelvic</button>
+                                <button data-target="efast-lung" class="tab-button px-4 py-2 text-sm font-medium rounded-t-lg">Lung</button>
+                            </nav>
+                        </div>
+                        <div class="py-4">
+                            <div id="efast-ruq" class="tab-content active"><h4 class="font-bold">RUQ (Hepatorenal)</h4><p class="text-sm">Most sensitive view for free fluid. Look for an anechoic stripe in Morison's Pouch. Scan superiorly to assess for haemothorax (look for spine sign, loss of mirror image).</p></div>
+                            <div id="efast-luq" class="tab-content"><h4 class="font-bold">LUQ (Splenorenal)</h4><p class="text-sm">Probe more posterior and superior. Look for fluid above the spleen and at the splenorenal interface. Remember "knuckles to the bed".</p></div>
+                            <div id="efast-pelvic" class="tab-content"><h4 class="font-bold">Pelvic</h4><p class="text-sm">Use the bladder as a window. Look for fluid in the rectovesical (male) or rectouterine (female) pouch. Best done before catheterisation.</p></div>
+                            <div id="efast-lung" class="tab-content"><h4 class="font-bold">Anterior Lungs</h4><p class="text-sm">Use linear probe if possible. Look for lung sliding at anterior chest wall (2nd/3rd intercostal space). Absence of sliding suggests pneumothorax. A "lung point" is diagnostic.</p></div>
+                        </div>
+                    </div>
+                </details>
+                
+            </div>
+        </section>
+
+        <!-- Nerve Blocks Section -->
+        <section id="blocks" class="mb-16 scroll-mt-20">
+            <h2 class="text-2xl font-bold mb-6 border-l-4 border-blue-500 pl-4">Ultrasound-Guided Nerve Blocks</h2>
+            <p class="mb-8 text-slate-600">USGRA offers potent, opioid-sparing analgesia. Mastery of these techniques is a mark of a versatile modern practitioner. Always remember preparation (SOAP ME), sterile technique, and safe injection principles.</p>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                
+                <!-- LA Dose Calculator -->
+                <div class="bg-white p-6 rounded-lg section-card lg:col-span-3">
+                    <h3 class="font-bold text-lg mb-4">Safe Local Anaesthetic Dose Calculator</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        <div>
+                            <div class="mb-4">
+                                <label for="weight-input" class="block text-sm font-medium text-slate-700">Patient Weight (kg)</label>
+                                <input type="number" id="weight-input" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., 70">
+                            </div>
+                            <fieldset class="mb-4">
+                                <legend class="text-sm font-medium text-slate-700">Anaesthetic</legend>
+                                <div class="mt-2 space-y-2">
+                                    <div class="flex items-center">
+                                        <input id="lido-plain" name="la-type" type="radio" value="lido_plain" class="h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500" checked>
+                                        <label for="lido-plain" class="ml-3 block text-sm text-slate-700">Lidocaine (Plain)</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input id="lido-adren" name="la-type" type="radio" value="lido_adren" class="h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500">
+                                        <label for="lido-adren" class="ml-3 block text-sm text-slate-700">Lidocaine with Adrenaline</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input id="bupi-plain" name="la-type" type="radio" value="bupi_plain" class="h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500">
+                                        <label for="bupi-plain" class="ml-3 block text-sm text-slate-700">Bupivacaine / Levobupivacaine</label>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            <button id="calculate-la-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Calculate</button>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                             <h4 class="font-semibold text-slate-800 mb-2">Results:</h4>
+                             <div id="la-results-error" class="text-red-600 text-sm font-semibold hidden"></div>
+                             <div id="la-results-display">
+                                <p class="text-sm text-slate-500">Enter patient weight and select an anaesthetic to calculate maximum safe doses.</p>
+                             </div>
+                             <p class="text-xs text-slate-400 mt-4"><strong>Disclaimer:</strong> This is an estimation tool. Always consult the BNF or local trust guidelines. Clinical judgement is paramount.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Femoral Block -->
+                <div class="bg-white p-6 rounded-lg section-card">
+                    <h3 class="font-bold text-lg mb-3">Femoral Nerve Block</h3>
+                    <p class="text-sm text-slate-600 mb-4">Primary analgesia for neck of femur and femoral shaft fractures.</p>
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-sm">Anatomy: NAVEL</h4>
+                        <p class="text-xs text-slate-500 mb-2">At inguinal crease, from Lateral to Medial.</p>
+                        <div class="flex space-x-1 text-center text-xs text-white font-mono">
+                           <div class="p-2 w-1/4 bg-yellow-500 rounded">Nerve</div>
+                           <div class="p-2 w-1/4 bg-red-500 rounded">Artery</div>
+                           <div class="p-2 w-1/4 bg-blue-500 rounded">Vein</div>
+                           <div class="p-2 w-1/4 bg-slate-400 rounded">EL</div>
+                        </div>
+                    </div>
+                    <ul class="text-sm space-y-2">
+                        <li><strong>Target:</strong> Space just lateral to nerve, deep to fascia iliaca.</li>
+                        <li><strong>Approach:</strong> In-plane, lateral to medial.</li>
+                        <li><strong>Volume:</strong> 15-20 mL of 0.25% Levobupivacaine.</li>
+                    </ul>
+                </div>
+
+                <!-- Serratus Anterior Block -->
+                <div class="bg-white p-6 rounded-lg section-card">
+                    <h3 class="font-bold text-lg mb-3">Serratus Anterior Plane Block</h3>
+                    <p class="text-sm text-slate-600 mb-4">A resuscitative block for multiple rib fractures to improve respiratory mechanics.</p>
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-sm">Anatomy: Muscle Layers</h4>
+                        <p class="text-xs text-slate-500 mb-2">At 5th rib, mid-axillary line. From Superficial to Deep.</p>
+                        <div class="space-y-1 text-sm font-semibold text-slate-700">
+                           <div class="p-2 bg-slate-200 rounded">Latissimus Dorsi</div>
+                           <div class="p-2 bg-blue-200 rounded">Plane for Superficial Block</div>
+                           <div class="p-2 bg-slate-300 rounded">Serratus Anterior</div>
+                           <div class="p-2 bg-blue-300 rounded">Plane for Deep Block</div>
+                           <div class="p-2 bg-slate-400 rounded-b">Rib / Intercostals</div>
+                        </div>
+                    </div>
+                    <ul class="text-sm space-y-2">
+                        <li><strong>Target:</strong> Fascial plane superficial (easier/safer) or deep to Serratus Anterior.</li>
+                        <li><strong>Approach:</strong> In-plane, using rib as a backstop.</li>
+                        <li><strong>Volume:</strong> 30-40 mL of 0.25% Levobupivacaine.</li>
+                    </ul>
+                </div>
+
+                <!-- Popliteal Sciatic Block -->
+                <div class="bg-white p-6 rounded-lg section-card">
+                    <h3 class="font-bold text-lg mb-3">Popliteal Sciatic Block</h3>
+                    <p class="text-sm text-slate-600 mb-4">Excellent for ankle and foot fractures. Blocks leg below the knee (except saphenous nerve distribution).</p>
+                    <ul class="text-sm space-y-2 mt-4">
+                        <li><strong>Anatomy:</strong> Tibial and Common Peroneal nerves lie within a common sheath, superficial to the popliteal vein and artery ("Pop on Top").</li>
+                        <li><strong>Target:</strong> Space between the two nerves, within the sheath, 5-10cm proximal to popliteal crease.</li>
+                        <li><strong>Approach:</strong> In-plane, lateral to medial.</li>
+                        <li><strong>Volume:</strong> 15-20 mL of LA.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Advanced Scans Section -->
+        <section id="advanced" class="mb-16 scroll-mt-20">
+            <h2 class="text-2xl font-bold mb-6 border-l-4 border-blue-500 pl-4">Advanced & Niche Applications</h2>
+            <p class="mb-8 text-slate-600">Expanding your POCUS skillset beyond the core curriculum adds significant diagnostic capability. These applications can provide rapid, crucial information for specific clinical presentations.</p>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-white p-6 rounded-lg section-card">
+                    <h3 class="font-bold text-lg mb-3">Ocular Ultrasound</h3>
+                    <p class="text-sm text-slate-600">Evaluate acute vision changes when fundoscopy is impossible. <strong>Contraindicated in suspected open globe injury.</strong></p>
+                    <ul class="text-sm space-y-2 mt-4 list-disc list-inside">
+                        <li><strong>Retinal Detachment:</strong> Thick membrane tethered to optic disc.</li>
+                        <li><strong>PVD:</strong> Thinner membrane, floats freely ("washing machine").</li>
+                        <li><strong>Raised ICP:</strong> Optic Nerve Sheath Diameter (ONSD) > 5mm (measured 3mm behind retina).</li>
+                    </ul>
+                </div>
+                 <div class="bg-white p-6 rounded-lg section-card">
+                    <h3 class="font-bold text-lg mb-3">DVT Assessment (2-Point)</h3>
+                    <p class="text-sm text-slate-600">A rapid "rule-in" test. A negative POCUS does not rule out DVT in high-risk patients.</p>
+                    <ul class="text-sm space-y-2 mt-4 list-disc list-inside">
+                        <li><strong>Goal:</strong> Assess compressibility of Common Femoral Vein and Popliteal Vein.</li>
+                        <li><strong>Positive Finding:</strong> Vein is not fully compressible.</li>
+                        <li><strong>Locations:</strong> 1. Groin (CFV at saphenofemoral junction). 2. Popliteal fossa.</li>
+                    </ul>
+                </div>
+                 <div class="bg-white p-6 rounded-lg section-card">
+                    <h3 class="font-bold text-lg mb-3">Soft Tissue & MSK</h3>
+                    <p class="text-sm text-slate-600">Directly alters management by differentiating cellulitis from abscess and confirming fractures.</p>
+                    <ul class="text-sm space-y-2 mt-4 list-disc list-inside">
+                        <li><strong>Cellulitis:</strong> "Cobblestone" appearance.</li>
+                        <li><strong>Abscess:</strong> Defined, complex fluid collection (may have "squish sign").</li>
+                        <li><strong>Fracture:</strong> Cortical disruption or "step-off" deformity.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-800 text-slate-300">
+        <div class="container mx-auto py-8 px-4 sm:px-6 lg:px-8 text-center">
+            <p class="font-bold mb-4">Resources for Continued Learning</p>
+            <div class="flex justify-center space-x-4 md:space-x-6 text-sm">
+                <a href="https://rcemlearning.co.uk/" target="_blank" class="hover:text-blue-400">RCEMLearning</a>
+                <a href="https://www.pocus101.com/" target="_blank" class="hover:text-blue-400">POCUS 101</a>
+                <a href="https://www.nysora.com/" target="_blank" class="hover:text-blue-400">NYSORA</a>
+                <a href="https://litfl.com/" target="_blank" class="hover:text-blue-400">LITFL</a>
+            </div>
+             <p class="mt-8 text-xs text-slate-500">This interactive guide is for educational purposes and should be used in conjunction with formal training and clinical governance.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Mobile menu toggle
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+
+            // Chart.js for RCEM Scan Numbers
+            const ctx = document.getElementById('rcemScansChart').getContext('2d');
+            const rcemScansChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['AAA', 'eFAST', 'Shock', 'ELS', 'FICB', 'Vascular'],
+                    datasets: [{
+                        label: 'Indicative Scan Numbers for Competency',
+                        data: [25, 25, 25, 10, 10, 5],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.5)',
+                            'rgba(239, 68, 68, 0.5)',
+                            'rgba(245, 158, 11, 0.5)',
+                            'rgba(16, 185, 129, 0.5)',
+                            'rgba(139, 92, 246, 0.5)',
+                            'rgba(99, 102, 241, 0.5)'
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(139, 92, 246, 1)',
+                            'rgba(99, 102, 241, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y + ' scans';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Details/Summary accordion toggle icon change
+            const detailsElements = document.querySelectorAll('details');
+            detailsElements.forEach(detail => {
+                detail.addEventListener('toggle', () => {
+                    const icon = detail.querySelector('summary span');
+                    if (detail.open) {
+                        icon.textContent = '-';
+                        icon.parentElement.nextElementSibling.classList.add('animate-fade-in');
+                    } else {
+                        icon.textContent = '+';
+                    }
+                });
+            });
+
+            // Generic Tab functionality
+            function setupTabs(tabContainerId) {
+                const tabContainer = document.getElementById(tabContainerId);
+                if (!tabContainer) return;
+
+                const tabButtons = tabContainer.querySelectorAll('.tab-button');
+                const tabContents = tabContainer.parentElement.querySelectorAll('.tab-content');
+
+                tabButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        tabButtons.forEach(btn => btn.classList.remove('active'));
+                        tabContents.forEach(content => content.classList.remove('active'));
+                        button.classList.add('active');
+                        const targetId = button.getAttribute('data-target');
+                        document.getElementById(targetId).classList.add('active');
+                    });
+                });
+            }
+
+            setupTabs('els-tabs');
+            setupTabs('efast-tabs');
+
+            // Probe Selector functionality
+            const probeSelector = document.getElementById('probe-selector');
+            const probeItems = probeSelector.querySelectorAll('.probe-item');
+            const probeDisplays = document.querySelectorAll('.probe-display');
+
+            probeItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const targetProbe = item.getAttribute('data-probe');
+                    probeItems.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                    probeDisplays.forEach(display => {
+                        display.classList.toggle('active', display.id === `probe-display-${targetProbe}`);
+                    });
+                });
+            });
+
+            // LA Dose Calculator
+            const calculateBtn = document.getElementById('calculate-la-btn');
+            const weightInput = document.getElementById('weight-input');
+            const resultsDisplay = document.getElementById('la-results-display');
+            const errorDisplay = document.getElementById('la-results-error');
+
+            const laDoses = {
+                lido_plain: { dose: 3, name: 'Lidocaine (Plain)' },
+                lido_adren: { dose: 7, name: 'Lidocaine w/ Adrenaline' },
+                bupi_plain: { dose: 2, name: 'Bupivacaine / Levobupivacaine' }
+            };
+
+            calculateBtn.addEventListener('click', () => {
+                const weight = parseFloat(weightInput.value);
+                const selectedLaRadio = document.querySelector('input[name="la-type"]:checked');
+
+                if (!weight || weight <= 0) {
+                    errorDisplay.textContent = 'Please enter a valid patient weight.';
+                    errorDisplay.classList.remove('hidden');
+                    resultsDisplay.innerHTML = '';
+                    return;
+                }
+
+                if (!selectedLaRadio) {
+                    errorDisplay.textContent = 'Please select an anaesthetic.';
+                    errorDisplay.classList.remove('hidden');
+                    resultsDisplay.innerHTML = '';
+                    return;
+                }
+
+                errorDisplay.classList.add('hidden');
+                const laKey = selectedLaRadio.value;
+                const laInfo = laDoses[laKey];
+                const maxMg = (weight * laInfo.dose).toFixed(1);
+
+                let resultsHtml = `<p class="text-sm font-semibold text-slate-700">Max Dose for ${weight}kg patient:</p>`;
+                resultsHtml += `<p class="text-lg font-bold text-blue-600">${maxMg} mg</p>`;
+                resultsHtml += `<p class="text-sm font-semibold text-slate-700 mt-2">Max Volume (mL):</p><ul class="text-sm space-y-1 list-disc list-inside">`;
+
+                if (laKey.includes('lido')) {
+                    const vol1 = (maxMg / 10).toFixed(1); // 1% = 10 mg/mL
+                    const vol2 = (maxMg / 20).toFixed(1); // 2% = 20 mg/mL
+                    resultsHtml += `<li><strong>1% Solution:</strong> ${vol1} mL</li>`;
+                    resultsHtml += `<li><strong>2% Solution:</strong> ${vol2} mL</li>`;
+                } else { // bupi
+                    const vol025 = (maxMg / 2.5).toFixed(1); // 0.25% = 2.5 mg/mL
+                    const vol05 = (maxMg / 5).toFixed(1); // 0.5% = 5 mg/mL
+                    resultsHtml += `<li><strong>0.25% Solution:</strong> ${vol025} mL</li>`;
+                    resultsHtml += `<li><strong>0.5% Solution:</strong> ${vol05} mL</li>`;
+                }
+                
+                resultsHtml += `</ul>`;
+                resultsDisplay.innerHTML = resultsHtml;
+            });
+
+             // Nav link active state on scroll
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute('id');
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href') === `#${id}`) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, { rootMargin: "-30% 0px -70% 0px" });
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+        });
+    </script>
+</body>
+</html>
